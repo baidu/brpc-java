@@ -52,7 +52,7 @@ import lombok.extern.slf4j.Slf4j;
  * @since 2018-09-03
  */
 @Slf4j
-public class FairStrategy implements LoadBalanceStrategy {
+public class FairStrategy<T> implements LoadBalanceStrategy<T> {
 
     private static final int TIMER_DELAY = 60;
 
@@ -80,7 +80,7 @@ public class FairStrategy implements LoadBalanceStrategy {
     // fair strategy will not work if the instances is less the minInstancesNum
     private int minInstancesNum = 3;
 
-    private CopyOnWriteArrayList<BrpcChannel> invalidInstances;
+    private CopyOnWriteArrayList<T> invalidInstances;
 
     private Random random = new Random(System.currentTimeMillis());
 
@@ -99,7 +99,7 @@ public class FairStrategy implements LoadBalanceStrategy {
                     }, TIMER_DELAY, TimeUnit.SECONDS);
                     this.rpcClient = rpcClient;
                     treeContainer = new CopyOnWriteArrayList<Node>();
-                    invalidInstances = new CopyOnWriteArrayList<BrpcChannel>();
+                    invalidInstances = new CopyOnWriteArrayList<T>();
                     latencyWindowSize = rpcClient.getRpcClientOptions().getLatencyWindowSizeOfFairLoadBalance();
                     activeInstancesRatio = rpcClient.getRpcClientOptions().getActiveInstancesRatioOfFairLoadBalance();
                     if (latencyWindowSize <= 1) {
@@ -111,10 +111,10 @@ public class FairStrategy implements LoadBalanceStrategy {
     }
 
     @Override
-    public BrpcChannel selectInstance(
+    public T selectInstance(
             Request request,
-            List<BrpcChannel> instances,
-            Set<BrpcChannel> selectedInstances) {
+            List<T> instances,
+            Set<T> selectedInstances) {
 
         if (treeContainer.size() == 0) {
             return randomSelect(instances);
@@ -122,7 +122,7 @@ public class FairStrategy implements LoadBalanceStrategy {
 
         try {
             Node root = treeContainer.get(0);
-            BrpcChannel selectedChannelGroup = fairSelect(root);
+            T selectedChannelGroup = fairSelect(root);
             // the invalidInstances list size is not very large.
             if (invalidInstances.contains(selectedChannelGroup)) {
                 // if the selected node is an invalid one, means the weight tree has not yet updated.
@@ -149,11 +149,11 @@ public class FairStrategy implements LoadBalanceStrategy {
      * Since the weight tree will update by a period of time, so if there's any invalid instance,
      * the business should notify the fair strategy.
      */
-    public void markInvalidInstance(List<BrpcChannel> instances) {
+    public void markInvalidInstance(List<T> instances) {
         this.invalidInstances.addAll(instances);
     }
 
-    protected BrpcChannel randomSelect(List<BrpcChannel> instances) {
+    protected T randomSelect(List<T> instances) {
         long instanceNum = instances.size();
         if (instanceNum == 0) {
             return null;
@@ -170,11 +170,11 @@ public class FairStrategy implements LoadBalanceStrategy {
         return randomIndex;
     }
 
-    protected BrpcChannel fairSelect(Node root) {
+    protected T fairSelect(Node root) {
         int max = root.weight;
         int randomWeight = random.nextInt(max);
         Node selectNode = searchNode(root, randomWeight);
-        return selectNode.server;
+        return (T)selectNode.server;
     }
 
     protected Node searchNode(Node parent, int weight) {
@@ -226,7 +226,7 @@ public class FairStrategy implements LoadBalanceStrategy {
         if (fullWindowInstances.size() < minInstancesNum
                 || fullWindowInstances.size() * 1.0 / rpcClient.getHealthyInstances().size() < activeInstancesRatio) {
             treeContainer = new CopyOnWriteArrayList<Node>();
-            invalidInstances = new CopyOnWriteArrayList<BrpcChannel>();
+            invalidInstances = new CopyOnWriteArrayList<T>();
             return;
         }
 
@@ -249,7 +249,7 @@ public class FairStrategy implements LoadBalanceStrategy {
         // Since the weight tree has updated by healthy instances, we need to update invalid instances too.
         // Although there maybe new invalid instances added while updating the weight tree, for simplicity,
         // we just remove all invalid instances, at least brpc-java has the retry feature.
-        invalidInstances = new CopyOnWriteArrayList<BrpcChannel>();
+        invalidInstances = new CopyOnWriteArrayList<T>();
     }
 
     /**
@@ -322,7 +322,7 @@ public class FairStrategy implements LoadBalanceStrategy {
     /**
      * The weight tree node
      */
-    static class Node {
+    static class Node<T> {
         // empty node
         static Node none = new Node();
         int serverId;
@@ -331,7 +331,7 @@ public class FairStrategy implements LoadBalanceStrategy {
         Node parent;
         Node left;
         Node right;
-        BrpcChannel server;
+        T server;
 
         public Node() {
         }
@@ -342,7 +342,7 @@ public class FairStrategy implements LoadBalanceStrategy {
             this.isLeaf = isLeaf;
         }
 
-        public Node(int serverId, int weight, boolean isLeaf, BrpcChannel server) {
+        public Node(int serverId, int weight, boolean isLeaf, T server) {
             this.serverId = serverId;
             this.weight = weight;
             this.isLeaf = isLeaf;

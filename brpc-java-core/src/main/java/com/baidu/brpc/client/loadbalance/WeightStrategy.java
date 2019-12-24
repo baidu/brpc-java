@@ -27,7 +27,7 @@ import com.baidu.brpc.protocol.Request;
  * Simple weight load balance strategy implementation
  * The channelGroup which has less failedNum will have the more probability
  */
-public class WeightStrategy implements LoadBalanceStrategy {
+public class WeightStrategy<T extends BrpcChannel> implements LoadBalanceStrategy<T> {
 
     private Random random = new Random(System.currentTimeMillis());
 
@@ -37,21 +37,21 @@ public class WeightStrategy implements LoadBalanceStrategy {
     }
 
     @Override
-    public BrpcChannel selectInstance(
+    public T selectInstance(
             Request request,
-            List<BrpcChannel> instances,
-            Set<BrpcChannel> selectedInstances) {
+            List<T> instances,
+            Set<T> selectedInstances) {
         long instanceNum = instances.size();
         if (instanceNum == 0) {
             return null;
         }
 
         long sum = 0;
-        for (BrpcChannel instance : instances) {
+        for (T instance : instances) {
             sum += getWeight(instance.getFailedNum());
         }
         long randWeight = random.nextLong() % sum;
-        for (BrpcChannel channelGroup : instances) {
+        for (T channelGroup : instances) {
             randWeight -= getWeight(channelGroup.getFailedNum());
             if (randWeight <= 0) {
                 return channelGroup;

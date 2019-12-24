@@ -25,7 +25,7 @@ import com.baidu.brpc.protocol.Request;
 /**
  * load balance strategy interface
  */
-public interface LoadBalanceStrategy {
+public interface LoadBalanceStrategy<T> {
     // default supported load balance type
     int LOAD_BALANCE_RANDOM = 0;
     int LOAD_BALANCE_ROUND_ROBIN = 1;
@@ -41,10 +41,10 @@ public interface LoadBalanceStrategy {
      * @param selectedInstances instances which have been selected.
      * @return the best instance channel
      */
-    BrpcChannel selectInstance(
+    T selectInstance(
             Request request,
-            List<BrpcChannel> instances,
-            Set<BrpcChannel> selectedInstances);
+            List<T> instances,
+            Set<T> selectedInstances);
 
     void destroy();
 }

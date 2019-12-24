@@ -29,7 +29,7 @@ import com.baidu.brpc.client.channel.BrpcChannel;
 import com.baidu.brpc.client.channel.BrpcChannelFactory;
 import com.baidu.brpc.client.RpcClient;
 
-public class BasicInstanceProcessor implements InstanceProcessor {
+public class BasicInstanceProcessor implements InstanceProcessor<BrpcChannel> {
     private CopyOnWriteArraySet<ServiceInstance> instances;
     private CopyOnWriteArrayList<BrpcChannel> instanceChannels;
     private ConcurrentMap<ServiceInstance, BrpcChannel> instanceChannelMap;

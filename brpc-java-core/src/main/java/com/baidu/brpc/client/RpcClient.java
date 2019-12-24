@@ -21,11 +21,7 @@ import com.baidu.brpc.client.channel.BrpcChannel;
 import com.baidu.brpc.client.channel.ChannelType;
 import com.baidu.brpc.client.handler.IdleChannelHandler;
 import com.baidu.brpc.client.handler.RpcClientHandler;
-import com.baidu.brpc.client.instance.BasicInstanceProcessor;
-import com.baidu.brpc.client.instance.Endpoint;
-import com.baidu.brpc.client.instance.EnhancedInstanceProcessor;
-import com.baidu.brpc.client.instance.InstanceProcessor;
-import com.baidu.brpc.client.instance.ServiceInstance;
+import com.baidu.brpc.client.instance.*;
 import com.baidu.brpc.client.loadbalance.LoadBalanceManager;
 import com.baidu.brpc.client.loadbalance.LoadBalanceStrategy;
 import com.baidu.brpc.client.loadbalance.RandomStrategy;
@@ -41,6 +37,7 @@ import com.baidu.brpc.naming.NamingServiceFactory;
 import com.baidu.brpc.naming.NamingServiceFactoryManager;
 import com.baidu.brpc.naming.NotifyListener;
 import com.baidu.brpc.naming.SubscribeInfo;
+import com.baidu.brpc.protocol.Options;
 import com.baidu.brpc.protocol.Protocol;
 import com.baidu.brpc.protocol.ProtocolManager;
 import com.baidu.brpc.protocol.Request;
@@ -54,6 +51,8 @@ import com.baidu.brpc.thread.ShutDownManager;
 import com.baidu.brpc.utils.BrpcConstants;
 import com.baidu.brpc.utils.CustomThreadFactory;
 import com.baidu.brpc.utils.ThreadPool;
+import com.google.common.collect.Lists;
+import io.grpc.ManagedChannel;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -76,10 +75,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.channels.ClosedChannelException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.NoSuchElementException;
+import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -283,7 +279,7 @@ public class RpcClient {
      * @return netty channel
      */
     public Channel selectChannel(Request request) {
-        BrpcChannel brpcChannel = loadBalanceStrategy.selectInstance(
+        BrpcChannel brpcChannel = (BrpcChannel) loadBalanceStrategy.selectInstance(
                 request,
                 instanceProcessor.getHealthyInstanceChannels(),
                 request.getSelectedInstances());
@@ -291,7 +287,7 @@ public class RpcClient {
             LOG.debug("no available healthy server, so random select one unhealthy server");
             RandomStrategy randomStrategy = new RandomStrategy();
             randomStrategy.init(this);
-            brpcChannel = randomStrategy.selectInstance(
+            brpcChannel = (BrpcChannel) randomStrategy.selectInstance(
                     request,
                     instanceProcessor.getUnHealthyInstanceChannels(),
                     request.getSelectedInstances());
@@ -353,7 +349,7 @@ public class RpcClient {
      * @return netty channel
      */
     public Channel selectChannel(Endpoint endpoint) {
-        BrpcChannel brpcChannel = instanceProcessor.getInstanceChannelMap().get(endpoint);
+        BrpcChannel brpcChannel = (BrpcChannel)instanceProcessor.getInstanceChannelMap().get(endpoint);
         if (brpcChannel == null) {
             LOG.warn("instance:{} not found, may be it is removed from naming service.", endpoint);
             throw new RpcException(RpcException.SERVICE_EXCEPTION, "instance not found:" + endpoint);
@@ -373,6 +369,36 @@ public class RpcClient {
         }
         return channel;
     }
+
+    /**
+     * select channel from endpoint which is selected by custom load balance.
+     *
+     * @param endpoint ip:port
+     * @return grpc channel
+     */
+    public io.grpc.Channel selectChannel(Endpoint endpoint,boolean isGrpc) {
+        if(isGrpc) {
+            Set<io.grpc.Channel> selectedChannel = new HashSet<io.grpc.Channel>();
+            ManagedChannel grpcChannel = (ManagedChannel) loadBalanceStrategy.selectInstance(
+                    null,
+                    instanceProcessor.getHealthyInstanceChannels(),
+                    selectedChannel
+            );
+            //ManagedChannel grpcChannel = (ManagedChannel)instanceProcessor.getInstanceChannelMap().get(endpoint);
+            if (grpcChannel == null) {
+                LOG.warn("instance:{} not found, may be it is removed from naming service.", endpoint);
+                throw new RpcException(RpcException.SERVICE_EXCEPTION, "instance not found:" + endpoint);
+            }
+            if (grpcChannel.isShutdown() || grpcChannel.isTerminated()) {
+                instanceProcessor.deleteInstances(Lists.newArrayList(new ServiceInstance(endpoint)));
+                String errMsg = "channel is non active, retry another channel";
+                throw new RpcException(RpcException.NETWORK_EXCEPTION, errMsg);
+            }
+            return grpcChannel;
+        }
+        return null;
+    }
+
 
     public void returnChannel(Channel channel) {
         ChannelInfo channelInfo = ChannelInfo.getClientChannelInfo(channel);
@@ -466,7 +492,9 @@ public class RpcClient {
         timeoutTimer = ClientTimeoutTimerInstance.getOrCreateInstance();
 
         // singleServer do not need healthChecker
-        if (singleServer) {
+        if(options.getProtocolType() == Options.ProtocolType.PROTOCOL_GRPC_VALUE) {
+            instanceProcessor = new GrpcInstanceProcessor();
+        } else if (singleServer) {
             instanceProcessor = new BasicInstanceProcessor(this);
         } else {
             instanceProcessor = new EnhancedInstanceProcessor(this);
@@ -477,7 +505,9 @@ public class RpcClient {
                 rpcClientOptions.getLoadBalanceType());
         loadBalanceStrategy.init(this);
 
-        // init once
+        if(!(options.getProtocolType() == Options.ProtocolType.PROTOCOL_GRPC_VALUE)) {
+            //if not grpc
+            // init once
         ShutDownManager.getInstance();
         boolean threadPoolSharing = rpcClientOptions.isGlobalThreadPoolSharing();
         if (threadPoolSharing) {
@@ -530,7 +560,7 @@ public class RpcClient {
         };
 
         bootstrap.group(ioThreadPool).handler(initializer);
-    }
+    }}
 
     public void removeLogId(long id) {
         fastFutureStore.getAndRemove(id);

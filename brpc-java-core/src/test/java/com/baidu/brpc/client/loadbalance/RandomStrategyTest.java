@@ -94,20 +94,20 @@ public class RandomStrategyTest {
         instances.add(instance2);
         instances.add(instance3);
         RandomStrategy randomStrategy = new RandomStrategy();
-        BrpcChannel instance = randomStrategy.selectInstance(null, instances, null);
+        BrpcChannel instance = (BrpcChannel)randomStrategy.selectInstance(null, instances, null);
         Assert.assertTrue(instance != null);
 
         Set<BrpcChannel> selectedInstances = new HashSet<BrpcChannel>();
         selectedInstances.add(instance3);
-        instance = randomStrategy.selectInstance(null, instances, selectedInstances);
+        instance = (BrpcChannel)randomStrategy.selectInstance(null, instances, selectedInstances);
         Assert.assertTrue(instance.getServiceInstance().getPort() != instance3.getServiceInstance().getPort());
 
         selectedInstances.add(instance2);
-        instance = randomStrategy.selectInstance(null, instances, selectedInstances);
+        instance = (BrpcChannel)randomStrategy.selectInstance(null, instances, selectedInstances);
         Assert.assertTrue(instance.getServiceInstance().getPort() == instance1.getServiceInstance().getPort());
 
         selectedInstances.add(instance1);
-        instance = randomStrategy.selectInstance(null, instances, selectedInstances);
+        instance = (BrpcChannel)randomStrategy.selectInstance(null, instances, selectedInstances);
         Assert.assertTrue(instance != null);
     }
 }

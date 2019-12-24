@@ -26,7 +26,7 @@ import com.baidu.brpc.protocol.Request;
 /**
  * Round-robin load balance strategy implementation
  */
-public class RoundRobinStrategy implements LoadBalanceStrategy {
+public class RoundRobinStrategy<T> implements LoadBalanceStrategy<T> {
 
     private AtomicLong counter = new AtomicLong(0);
 
@@ -36,16 +36,16 @@ public class RoundRobinStrategy implements LoadBalanceStrategy {
     }
 
     @Override
-    public BrpcChannel selectInstance(
+    public T selectInstance(
             Request request,
-            List<BrpcChannel> instances,
-            Set<BrpcChannel> selectedInstances) {
+            List<T> instances,
+            Set<T> selectedInstances) {
         long instanceNum = instances.size();
         if (instanceNum == 0) {
             return null;
         }
         int index = (int) (counter.getAndIncrement() % instanceNum);
-        BrpcChannel channelGroup = instances.get(index);
+        T channelGroup = instances.get(index);
         return channelGroup;
     }
 

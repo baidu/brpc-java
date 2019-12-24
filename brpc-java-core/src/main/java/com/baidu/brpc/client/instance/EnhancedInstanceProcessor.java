@@ -40,7 +40,7 @@ import io.netty.util.TimerTask;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class EnhancedInstanceProcessor implements InstanceProcessor {
+public class EnhancedInstanceProcessor implements InstanceProcessor<BrpcChannel> {
     private RpcClient rpcClient;
     private CopyOnWriteArraySet<ServiceInstance> instances;
     private CopyOnWriteArrayList<BrpcChannel> healthyInstanceChannels;
