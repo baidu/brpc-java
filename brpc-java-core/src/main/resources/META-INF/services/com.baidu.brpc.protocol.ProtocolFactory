@@ -7,3 +7,4 @@ com.baidu.brpc.protocol.stargate.StargateRpcProtocolFactory
 com.baidu.brpc.protocol.http.HttpProtobufProtocolFactory
 com.baidu.brpc.protocol.http.HttpJsonProtocolFactory
 com.baidu.brpc.protocol.push.ServerPushProtocolFactory
+com.baidu.brpc.protocol.grpc.Http2GrpcProtocolFactory
