@@ -95,7 +95,7 @@ public class BaiduRpcProtocol extends AbstractProtocol {
             requestMeta.setSpanId(request.getSpanId());
         }
         if (request.getParentSpanId() != null) {
-            requestMeta.setSpanId(request.getParentSpanId());
+            requestMeta.setParentSpanId(request.getParentSpanId());
         }
         if (request.getKvAttachment() != null) {
             for (Map.Entry<String, Object> kv : request.getKvAttachment().entrySet()) {
@@ -252,7 +252,7 @@ public class BaiduRpcProtocol extends AbstractProtocol {
                 request.setTraceId(requestMeta.getTraceId());
             }
             if (requestMeta.hasSpanId()) {
-                request.setSpanId(request.getSpanId());
+                request.setSpanId(requestMeta.getSpanId());
             }
             if (requestMeta.hasParentSpanId()) {
                 request.setParentSpanId(requestMeta.getParentSpanId());
